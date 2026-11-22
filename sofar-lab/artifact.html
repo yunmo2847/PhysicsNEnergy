@@ -1,0 +1,1219 @@
+<title>SOFAR 해저 음향 실험실</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a dive. Five lab stations stacked top→bottom like descending through the water column;
+   each station = observation porthole (canvas) + control console. Single deep-sea look by design. */
+:root{
+  --abyss:#020a12;
+  --trench:#061827;
+  --panel:rgba(7,30,46,.72);
+  --panel-solid:#082033;
+  --rim:rgba(118,222,226,.16);
+  --rim-strong:rgba(118,222,226,.42);
+  --sonar:#5ef2df;
+  --sonar-soft:rgba(94,242,223,.13);
+  --amber:#ffb547;
+  --amber-soft:rgba(255,181,71,.14);
+  --coral:#ff7a86;
+  --ink:#dcf3f5;
+  --ink-dim:#8fb1bd;
+  --ink-faint:#58798a;
+  --f-display:'Do Hyeon','IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --f-body:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--abyss);color:var(--ink)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;overflow-x:hidden}
+#ambient{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;text-wrap:balance;margin:0;letter-spacing:.01em}
+p{margin:0}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--sonar)}
+.hl{color:var(--sonar)}
+.hl-amber{color:var(--amber)}
+
+/* ---------- hero ---------- */
+.hero{padding-block:56px 28px;display:grid;gap:22px}
+.hero h1{font-size:clamp(38px,6.4vw,72px);line-height:1.05}
+.hero .lede{max-width:60ch;color:var(--ink-dim);font-size:16px}
+.feed{position:relative;border-radius:20px;overflow:hidden;border:1px solid var(--rim);background:#03101b;box-shadow:0 30px 80px -30px rgba(0,0,0,.8),inset 0 0 0 1px rgba(255,255,255,.02)}
+.feed canvas{display:block;width:100%}
+.hud{position:absolute;pointer-events:none;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;color:rgba(160,240,235,.75);text-transform:uppercase}
+.hud.tl{top:10px;left:14px}.hud.tr{top:10px;right:14px;text-align:right}
+.hud.bl{bottom:8px;left:14px}.hud.br{bottom:8px;right:14px;text-align:right}
+.rec{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--coral);margin-right:6px;vertical-align:1px;animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+.corner{position:absolute;width:18px;height:18px;border-color:rgba(94,242,223,.55);border-style:solid;pointer-events:none}
+.corner.a{top:6px;left:6px;border-width:1.5px 0 0 1.5px}.corner.b{top:6px;right:6px;border-width:1.5px 1.5px 0 0}
+.corner.c{bottom:6px;left:6px;border-width:0 0 1.5px 1.5px}.corner.d{bottom:6px;right:6px;border-width:0 1.5px 1.5px 0}
+
+.route{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.route a{display:grid;gap:2px;padding:12px 14px;border-radius:12px;border:1px solid var(--rim);background:var(--panel);text-decoration:none;color:var(--ink);transition:border-color .2s,transform .2s}
+.route a:hover,.route a:focus-visible{border-color:var(--rim-strong);transform:translateY(-2px);outline:none}
+.route .n{font-family:var(--f-mono);font-size:11px;color:var(--sonar);letter-spacing:.12em}
+.route .t{font-family:var(--f-display);font-size:18px;line-height:1.2}
+.route .d{font-size:12px;color:var(--ink-faint)}
+
+/* ---------- stations ---------- */
+.station{padding-block:64px 8px;display:grid;gap:22px;scroll-margin-top:12px}
+.st-head{display:grid;gap:8px;max-width:760px}
+.st-head h2{font-size:clamp(28px,4vw,40px);line-height:1.15}
+.st-head p{color:var(--ink-dim)}
+.lab{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(0,1fr);gap:16px;align-items:start}
+.lab.even{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)}
+.console{display:grid;gap:12px;padding:16px;border-radius:18px;border:1px solid var(--rim);background:var(--panel);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);min-width:0}
+.console h3{font-size:19px}
+.mission{display:grid;gap:4px;padding:12px 14px;border-radius:12px;background:var(--sonar-soft);border:1px dashed rgba(94,242,223,.35)}
+.mission .eyebrow{font-size:10.5px}
+.mission p{font-size:14px}
+.readouts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ro{padding:9px 11px;border-radius:10px;background:rgba(0,0,0,.28);border:1px solid rgba(118,222,226,.1);min-width:0}
+.ro .k{font-size:11px;color:var(--ink-faint);letter-spacing:.04em}
+.ro .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:600;color:var(--ink);line-height:1.25;white-space:nowrap}
+.ro .v small{font-size:11.5px;font-weight:400;color:var(--ink-dim);margin-left:3px}
+.ro.big{grid-column:span 2}
+.ro.big .v{font-size:30px;color:var(--sonar);text-shadow:0 0 18px rgba(94,242,223,.35)}
+.ro .v.warn{color:var(--amber)}
+.ro .v.bad{color:var(--coral)}
+
+.ctl{display:grid;gap:6px}
+.ctl label{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ink-dim)}
+.ctl label b{font-family:var(--f-mono);font-weight:600;color:var(--ink);font-size:15px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:6px;background:linear-gradient(90deg,rgba(94,242,223,.55),rgba(94,242,223,.12))}
+input[type=range]::-moz-range-track{height:6px;border-radius:6px;background:linear-gradient(90deg,rgba(94,242,223,.55),rgba(94,242,223,.12))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#e9fffc,#5ef2df 55%,#1b8f86);box-shadow:0 0 0 4px rgba(94,242,223,.16),0 0 14px rgba(94,242,223,.6);border:none}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#e9fffc,#5ef2df 55%,#1b8f86);box-shadow:0 0 0 4px rgba(94,242,223,.16),0 0 14px rgba(94,242,223,.6);border:none}
+input[type=range]:focus-visible{outline:2px solid var(--sonar);outline-offset:2px;border-radius:6px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font-family:var(--f-body);font-size:14px;font-weight:600;color:var(--ink);background:rgba(255,255,255,.04);border:1px solid var(--rim-strong);border-radius:10px;padding:9px 14px;cursor:pointer;transition:background .15s,transform .1s,box-shadow .2s}
+button:hover{background:rgba(94,242,223,.1)}
+button:active{transform:translateY(1px)}
+button:focus-visible{outline:2px solid var(--sonar);outline-offset:2px}
+button.primary{background:linear-gradient(180deg,#5ef2df,#25b7aa);color:#02201d;border-color:transparent;box-shadow:0 0 22px -4px rgba(94,242,223,.6)}
+button.primary:hover{background:linear-gradient(180deg,#86fff0,#2fc9bb)}
+button[aria-pressed=true]{background:var(--sonar-soft);border-color:var(--sonar);color:var(--sonar)}
+button:disabled{opacity:.4;cursor:default}
+.seg{display:flex;gap:0;border:1px solid var(--rim-strong);border-radius:10px;overflow:hidden}
+.seg button{flex:1;border:none;border-radius:0;padding:8px 6px;font-size:13px;background:transparent}
+.seg button+button{border-left:1px solid var(--rim)}
+.seg button[aria-pressed=true]{background:var(--sonar-soft);color:var(--sonar)}
+.note{font-size:12.5px;color:var(--ink-faint)}
+.msg{font-size:14px;padding:10px 12px;border-radius:10px;background:rgba(0,0,0,.25);border-left:3px solid var(--sonar)}
+.msg.amber{border-left-color:var(--amber)}
+details.why{border-top:1px solid var(--rim);padding-top:10px}
+details.why summary{cursor:pointer;font-weight:600;color:var(--sonar);font-size:14px;list-style:none}
+details.why summary::-webkit-details-marker{display:none}
+details.why summary::before{content:'▸ ';}
+details.why[open] summary::before{content:'▾ ';}
+details.why div{display:grid;gap:8px;padding-top:8px;font-size:14px;color:var(--ink-dim)}
+.formula{font-family:var(--f-mono);font-size:14px;color:var(--ink);background:rgba(0,0,0,.3);padding:6px 10px;border-radius:8px;display:inline-block}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--f-mono);font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid var(--rim-strong);color:var(--sonar);background:var(--sonar-soft)}
+.chip.out{color:var(--amber);border-color:rgba(255,181,71,.5);background:var(--amber-soft)}
+.chip.floor{color:var(--coral);border-color:rgba(255,122,134,.5);background:rgba(255,122,134,.1)}
+
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12.5px;color:var(--ink-dim)}
+.legend i{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+
+.tbl-wrap{overflow-x:auto;border-radius:14px;border:1px solid var(--rim);background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+th,td{padding:9px 12px;text-align:right;white-space:nowrap}
+th{font-weight:500;color:var(--ink-faint);font-size:12px;border-bottom:1px solid var(--rim)}
+td{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+tr+tr td{border-top:1px solid rgba(118,222,226,.07)}
+td.best{color:var(--sonar);font-weight:600}
+td.worst{color:var(--amber);font-weight:600}
+
+.predict{display:grid;gap:8px}
+.predict .btns button{flex:1 1 120px}
+
+.wrapup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.wrapup article{padding:18px;border-radius:16px;border:1px solid var(--rim);background:var(--panel);display:grid;gap:6px;align-content:start}
+.wrapup h3{font-size:21px}
+.wrapup p{color:var(--ink-dim);font-size:14px}
+.limits{font-size:13px;color:var(--ink-faint);padding:12px 16px;border-radius:12px;border:1px dashed var(--rim)}
+
+#gauge{position:fixed;right:max(14px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);z-index:5;display:grid;justify-items:center;gap:6px;font-family:var(--f-mono);font-size:10px;color:var(--ink-faint);pointer-events:none}
+#gauge .bar{width:4px;height:180px;border-radius:4px;background:linear-gradient(#2a8aa8,#0b2340 50%,#050d18);position:relative;box-shadow:0 0 0 1px var(--rim)}
+#gauge .dot{position:absolute;left:50%;width:12px;height:12px;margin-left:-6px;margin-top:-6px;border-radius:50%;background:var(--sonar);box-shadow:0 0 12px var(--sonar)}
+#gauge .val{color:var(--sonar);font-size:12px;writing-mode:horizontal-tb}
+#soundBtn{position:fixed;left:max(14px,env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:6;font-size:12.5px;padding:8px 12px;background:rgba(4,20,32,.85);backdrop-filter:blur(6px)}
+
+footer{padding-block:48px 0;color:var(--ink-faint);font-size:12.5px;display:grid;gap:4px}
+
+@media (max-width:980px){
+  #gauge{display:none}
+  .lab,.lab.even{grid-template-columns:minmax(0,1fr)}
+  .route{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .route a:last-child{grid-column:span 2}
+  .wrapup{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:520px){
+  .hud.tr,.hud.br{display:none}
+  .readouts{grid-template-columns:1fr 1fr}
+  .ro .v{font-size:17px}
+  .ro.big .v{font-size:24px}
+  #soundBtn .sb-t{display:none}
+  #soundBtn{padding:8px 10px;font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  .rec{animation:none}
+  .route a{transition:none}
+}
+</style>
+
+<canvas id="ambient" aria-hidden="true"></canvas>
+<div id="gauge" aria-hidden="true"><span>수면</span><div class="bar"><div class="dot" id="gaugeDot"></div></div><span>4000 m</span><span class="val" id="gaugeVal">0 m</span></div>
+<button id="soundBtn" aria-pressed="false" type="button" aria-label="소나 소리 켜기">🔈 <span class="sb-t">소나 소리 켜기</span></button>
+
+<div class="wrap">
+  <header class="hero">
+    <span class="eyebrow">역학과 에너지 · 자유탐구 · 해저 음향 실험실</span>
+    <h1>바다는 소리를<br>어떻게 <span class="hl">가두는가</span></h1>
+    <p class="lede">경계도 벽도 없는 바닷속에서, 소리는 수심 1000 m 근처에 갇혀 수천 km를 갑니다. 잠수정을 타고 내려가면서 음속을 재고, 소리를 쏘고, 도착 시간을 겨루고, 해저까지 거리를 재 보세요.</p>
+    <div class="feed" id="heroFeed">
+      <canvas id="heroCv" aria-label="수심 1000 m 음원에서 여러 각도로 퍼진 소리가 SOFAR 채널 안에서 물결 모양으로 휘며 나아가는 실시간 화면"></canvas>
+      <span class="corner a"></span><span class="corner b"></span><span class="corner c"></span><span class="corner d"></span>
+      <div class="hud tl"><span class="rec"></span>LIVE · 음원 1000 m · −14°~+14°</div>
+      <div class="hud tr"><span id="heroClock">T+000.0 s</span> · <span id="heroExag">세로 과장</span></div>
+    </div>
+    <nav class="route" aria-label="실험 순서">
+      <a href="#s1"><span class="n">ST.01</span><span class="t">음속 측정</span><span class="d">수면 → 해저 4000 m</span></a>
+      <a href="#s2"><span class="n">ST.02</span><span class="t">파면이 도는 원리</span><span class="d">느린 쪽으로 휜다</span></a>
+      <a href="#s3"><span class="n">ST.03</span><span class="t">발사각 실험</span><span class="d">몇 도까지 갇힐까</span></a>
+      <a href="#s4"><span class="n">ST.04</span><span class="t">도착 경주</span><span class="d">200 km 수신기</span></a>
+      <a href="#s5"><span class="n">ST.05</span><span class="t">해저 탐사</span><span class="d">음향측심</span></a>
+    </nav>
+  </header>
+
+  <!-- ===== ST.01 ===== -->
+  <section class="station" id="s1">
+    <div class="st-head">
+      <span class="eyebrow">ST.01 · CTD 프로브 하강</span>
+      <h2>바닷속 음속은 깊이마다 얼마나 다를까?</h2>
+      <p>탐사선에서 프로브를 내려 깊이별 음속을 기록하세요. 슬라이더를 움직이거나 관측창을 직접 끌어도 됩니다.</p>
+    </div>
+    <div class="lab">
+      <div class="feed">
+        <canvas id="ctdCv" aria-label="탐사선에서 내린 프로브와 깊이별 음속 그래프"></canvas>
+        <span class="corner a"></span><span class="corner b"></span><span class="corner c"></span><span class="corner d"></span>
+        <div class="hud tl"><span class="rec"></span>CTD-1</div>
+        <div class="hud tr">음속 프로파일 · 예시 데이터</div>
+      </div>
+      <div class="console">
+        <div class="mission"><span class="eyebrow">미션</span><p>소리가 <b>가장 느린 깊이</b>를 찾아보세요.</p></div>
+        <div class="ctl">
+          <label for="depth">프로브 수심 <b id="depthLbl">0 m</b></label>
+          <input type="range" id="depth" min="0" max="4000" step="10" value="0">
+        </div>
+        <div class="btns">
+          <button class="primary" id="autoDive" type="button">자동 하강</button>
+          <button id="clearCtd" type="button">기록 지우기</button>
+        </div>
+        <div class="readouts">
+          <div class="ro big"><div class="k">음속</div><div class="v" id="roSpeed">1520.0<small>m/s</small></div></div>
+          <div class="ro"><div class="k">수온 (예시)</div><div class="v" id="roTemp">20.0<small>°C</small></div></div>
+          <div class="ro"><div class="k">수압</div><div class="v" id="roPres">1.0<small>기압</small></div></div>
+          <div class="ro big"><div class="k">지금까지 찾은 가장 느린 곳</div><div class="v" id="roSlow" style="font-size:20px;color:var(--ink)">아직 기록 없음</div></div>
+        </div>
+        <div class="msg" id="ctdMsg">프로브를 내리면 오른쪽 그래프에 점이 찍혀요.</div>
+        <details class="why"><summary>왜 이런 모양일까?</summary><div>
+          <p><b>수면 ~ 1000 m:</b> 깊어질수록 물이 차가워져서 음속이 느려집니다.</p>
+          <p><b>1000 m 아래:</b> 수온은 거의 그대로인데 수압이 계속 커져서 음속이 다시 빨라집니다.</p>
+          <p>그 사이 <b>약 1000 m</b>가 가장 느린 층, <span class="hl">SOFAR 채널</span>의 축입니다. 저주파 소리는 여기서 수천 km까지 전달돼요.</p>
+          <p class="note">예시값: 수면 1520, 1000 m 1480, 4000 m 1530 m/s. 실제 경향만 반영한 가정값이고, 아래 모든 계산이 이 값을 씁니다. 수온은 이해를 돕는 그림용 예시입니다.</p>
+        </div></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ST.02 ===== -->
+  <section class="station" id="s2">
+    <div class="st-head">
+      <span class="eyebrow">ST.02 · 원리</span>
+      <h2>소리는 <span class="hl">느린 쪽</span>으로 휘며 원을 그린다</h2>
+      <p>소리의 파면(폭 L)을 확대해 봤어요. 위쪽 끝이 빠른 물에, 아래쪽 끝이 느린 물에 있으면 위쪽이 더 멀리 가서 파면이 돌아갑니다.</p>
+    </div>
+    <div class="lab even">
+      <div class="feed">
+        <canvas id="waveCv" aria-label="위는 빠르고 아래는 느린 물속에서 소리의 파면이 아래쪽으로 회전하며 원을 그리는 모습"></canvas>
+        <span class="corner a"></span><span class="corner b"></span><span class="corner c"></span><span class="corner d"></span>
+        <div class="hud tl">파면 확대 관측</div>
+      </div>
+      <div class="console">
+        <div class="mission"><span class="eyebrow">해 보기</span><p>음속 차이를 0으로 만들면 소리는 어떻게 갈까요? 차이를 크게 하면?</p></div>
+        <div class="ctl">
+          <label for="dv">위아래 음속 차이 <b id="dvLbl">보통</b></label>
+          <input type="range" id="dv" min="0" max="100" step="1" value="40">
+        </div>
+        <div class="readouts">
+          <div class="ro"><div class="k">진행 방향</div><div class="v" id="roAng">0°</div></div>
+          <div class="ro"><div class="k">도는 빠르기 ω</div><div class="v" id="roOmega">0.00<small>rad/s</small></div></div>
+        </div>
+        <div class="msg">빠른 쪽이 <span class="formula" style="padding:1px 6px">k·L·Δt</span> 만큼 더 이동 → 파면이 느린 쪽으로 기운다.</div>
+        <details class="why" open><summary>원운동과 연결하기</summary><div>
+          <p><span class="formula">ω = k·cosα</span> 작은 각에서는 cosα ≈ 1 이라 ω가 거의 일정 → <b>등속 원운동</b></p>
+          <p><span class="formula">v = rω → r = v₀ / k</span></p>
+          <p>축 위쪽 (k = 0.04): r = 1480 ÷ 0.04 = <b class="hl">37 km</b><br>축 아래쪽 (k ≈ 0.017): r ≈ <b class="hl">89 km</b></p>
+          <p>구심 가속도 a = v²/r 는 늘 1000 m 쪽을 향해서, 소리가 층을 못 벗어납니다.</p>
+        </div></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ST.03 ===== -->
+  <section class="station" id="s3">
+    <div class="st-head">
+      <span class="eyebrow">ST.03 · 발사각 실험 · Q1</span>
+      <h2>몇 도까지 쏜 소리가 <span class="hl">1000 m에 갇힐까?</span></h2>
+      <p>수심 1000 m의 음원에서 각도를 바꿔 소리를 쏘세요. 0.001초마다 위치를 옮기고, 방향을 돌리고, 음속을 바꾸는 계산으로 경로를 따라갑니다.</p>
+    </div>
+    <div class="lab">
+      <div class="feed">
+        <canvas id="rayCv" aria-label="발사각에 따라 휘어지는 소리 경로. 해수면에 닿으면 주황색으로 표시"></canvas>
+        <span class="corner a"></span><span class="corner b"></span><span class="corner c"></span><span class="corner d"></span>
+        <div class="hud tl"><span class="rec"></span>음선 추적 · Δt = 0.001 s</div>
+        <div class="hud tr"><span id="rayClock">T+000.0 s</span> · <span id="rayExag">세로 과장</span></div>
+      </div>
+      <div class="console">
+        <div class="mission"><span class="eyebrow">미션</span><p>해수면에 닿지 않는 <b>가장 큰 발사각</b>을 찾아라. 원운동 모델은 <b class="hl">13.4°</b>라고 예측했어요.</p></div>
+        <div class="ctl">
+          <label for="ang">발사각 <span class="note">(+ 위쪽 / − 아래쪽)</span> <b id="angLbl">+8.00°</b></label>
+          <input type="range" id="ang" min="-20" max="20" step="0.25" value="8">
+        </div>
+        <div class="btns">
+          <button class="primary" id="fire" type="button">소리 발사</button>
+          <button id="fan" type="button">부채꼴 발사</button>
+          <button id="clearRays" type="button">지우기</button>
+          <button id="circleBtn" type="button" aria-pressed="true">예측 원 보기</button>
+        </div>
+        <div class="readouts">
+          <div class="ro big"><div class="k">결과</div><div class="v" id="roResult" style="font-size:22px">발사 대기</div></div>
+          <div class="ro"><div class="k">가장 얕게 올라간 수심</div><div class="v" id="roTop">—</div></div>
+          <div class="ro"><div class="k">원운동 예측</div><div class="v" id="roPred">—</div></div>
+        </div>
+        <div class="ctl"><span class="note">실험 기록</span><div class="chips" id="angLog"><span class="note">아직 없음</span></div></div>
+        <div class="msg" id="rayMsg">팁: 13° 근처에서 0.25°씩 바꿔 보세요.</div>
+        <details class="why"><summary>원운동 예측은 어떻게?</summary><div>
+          <p>소리가 올라가는 최고 높이는 <span class="formula">r(1 − cosα)</span>. 이 값이 1000 m보다 작으면 해수면에 안 닿아요.</p>
+          <p>r = 37 km 이면 1 − cosα &lt; 1000/37000 → <b class="hl">α &lt; 13.4°</b></p>
+          <p>시뮬레이션에서는 13.0°까지 갇히고 13.25°부터 해수면에 닿습니다. 실제로는 α가 클수록 cosα가 1보다 작아져 원이 조금 찌그러지기 때문이에요.</p>
+        </div></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ST.04 ===== -->
+  <section class="station" id="s4">
+    <div class="st-head">
+      <span class="eyebrow">ST.04 · 도착 경주 · Q2</span>
+      <h2>어떤 각도의 소리가 200 km에 <span class="hl">먼저</span> 도착할까?</h2>
+      <p>0°, 4°, 8°, 12° 네 소리를 동시에 쏩니다. 출발 전에 먼저 예상해 보세요.</p>
+    </div>
+    <div class="lab">
+      <div class="feed">
+        <canvas id="raceCv" aria-label="네 각도의 소리가 200 km 떨어진 수신기를 향해 나아가는 경주 화면과 수신 기록"></canvas>
+        <span class="corner a"></span><span class="corner b"></span><span class="corner c"></span><span class="corner d"></span>
+        <div class="hud tl"><span class="rec"></span>수신기 RX-200 · 200 km</div>
+        <div class="hud tr" id="raceClock">T+000.0 s</div>
+      </div>
+      <div class="console">
+        <div class="predict" id="predictBox">
+          <div class="mission"><span class="eyebrow">예상하기</span><p>가장 먼저 도착하는 소리는?</p></div>
+          <div class="btns">
+            <button type="button" data-guess="0">0° 수평<br><span class="note">경로가 가장 짧아</span></button>
+            <button type="button" data-guess="12">12° 비스듬히<br><span class="note">뭔가 다를 것 같아</span></button>
+            <button type="button" data-guess="same">거의 동시<br><span class="note">차이 없을 듯</span></button>
+          </div>
+        </div>
+        <div class="btns">
+          <button class="primary" id="raceGo" type="button">경주 시작</button>
+          <button id="raceReset" type="button">다시</button>
+        </div>
+        <div class="legend" id="raceLegend"></div>
+        <div class="msg" id="raceMsg">예상을 고르고 경주를 시작하세요. 수신기 근처에서는 슬로모션으로 바뀝니다.</div>
+        <div class="ctl">
+          <span class="note">계산 간격 Δt (정확도 검증)</span>
+          <div class="seg" id="dtSeg">
+            <button type="button" data-dt="0.1">0.1 s</button>
+            <button type="button" data-dt="0.01">0.01 s</button>
+            <button type="button" data-dt="0.001" aria-pressed="true">0.001 s</button>
+          </div>
+          <div class="note" id="dtCheck"></div>
+        </div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>발사각</th><th>200 km 직접 측정</th><th>한 주기 수평 거리</th><th>한 주기 시간</th><th>평균 수평 속력</th><th>평균 속력으로 계산한 도착</th></tr></thead>
+        <tbody id="raceTbody"></tbody>
+      </table>
+    </div>
+    <details class="why"><summary>왜 곧게 간 소리가 가장 늦을까? · 시행착오</summary><div>
+      <p>걸린 시간 = 거리 ÷ 속력. 수평(0°) 소리는 경로는 가장 짧지만 <b>가장 느린 1000 m 층에만</b> 머뭅니다. 비스듬한 소리는 위아래의 <b>빠른 물</b>을 지나서 평균 수평 속력이 더 커요.</p>
+      <p><b>시행착오:</b> ① 200 km 지점에서 바로 잰 값은 소리가 주기의 어디쯤에 있느냐에 따라 출렁입니다(표의 둘째 칸). ② 그래서 ③ <b>한 주기 평균 수평 속력</b>으로 200 km 도착 시간을 다시 계산했어요(마지막 칸).</p>
+    </div></details>
+  </section>
+
+  <!-- ===== ST.05 ===== -->
+  <section class="station" id="s5">
+    <div class="st-head">
+      <span class="eyebrow">ST.05 · 공학 포인트 · 음향측심</span>
+      <h2>갇히는 바다에서 <span class="hl">해저 깊이</span>는 어떻게 잴까?</h2>
+      <p>수직으로 쏜 소리는 ω = k·cos90° = 0 이라 휘지 않아요. 해저(매질의 경계)에서 반사되어 돌아온 시간 t 로 깊이를 계산합니다. 화면 속 소리는 실제 시간으로 움직여요.</p>
+    </div>
+    <div class="lab even">
+      <div class="feed">
+        <canvas id="echoCv" aria-label="탐사선이 수직으로 소리를 쏘아 해저에서 반사되어 돌아오는 모습"></canvas>
+        <span class="corner a"></span><span class="corner b"></span><span class="corner c"></span><span class="corner d"></span>
+        <div class="hud tl"><span class="rec"></span>음향측심기 · 실제 시간</div>
+        <div class="hud tr" id="echoClock">t = 0.000 s</div>
+      </div>
+      <div class="console">
+        <div class="mission"><span class="eyebrow">미션</span><p>모르는 해역의 깊이를 재 보세요. 어떤 음속으로 계산해야 정확할까요?</p></div>
+        <div class="btns">
+          <button class="primary" id="ping" type="button">핑 발사</button>
+          <button id="newSea" type="button">새 해역으로</button>
+          <button id="reveal" type="button">정답 공개</button>
+        </div>
+        <div class="readouts">
+          <div class="ro big"><div class="k">왕복 시간 t</div><div class="v" id="roT">—</div></div>
+        </div>
+        <div class="ctl">
+          <span class="note">계산에 쓸 음속 v</span>
+          <div class="seg" id="vSeg">
+            <button type="button" data-v="surface" aria-pressed="true">수면 1520</button>
+            <button type="button" data-v="avg">깊이별 보정 v̄</button>
+          </div>
+        </div>
+        <div class="readouts">
+          <div class="ro big"><div class="k" id="calcK">d = v · t ÷ 2</div><div class="v" id="roD" style="font-size:24px">핑을 먼저 쏘세요</div></div>
+          <div class="ro"><div class="k">실제 깊이</div><div class="v" id="roTrue">? m</div></div>
+          <div class="ro"><div class="k">오차</div><div class="v" id="roErr">—</div></div>
+        </div>
+        <details class="why"><summary>음속은 하나가 아니다</summary><div>
+          <p>4000 m 왕복 <b>5.32 s</b>, 평균 음속 <b>v̄ = 1503.6 m/s</b>. 수면 음속 1520 m/s로 계산하면 약 <b class="hl-amber">+44 m</b> 오차가 납니다.</p>
+          <p>실제 탐사선은 깊이별 음속을 재서 보정하고, 비스듬한 빔은 음선 추적으로 보정해요.</p>
+        </div></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== wrap-up ===== -->
+  <section class="station" id="s6">
+    <div class="st-head">
+      <span class="eyebrow">부상 · 정리</span>
+      <h2>바다는 소리를 <span class="hl">휘어서</span> 가둔다</h2>
+    </div>
+    <div class="wrapup">
+      <article><span class="eyebrow">모델</span><h3>원운동으로 예측</h3><p>r = v₀/k 로 갇히는 각도(약 13°)와 되돌아오는 깊이를 계산할 수 있다.</p></article>
+      <article><span class="eyebrow">결과</span><h3>도착 순서는 음속이 결정</h3><p>경로 길이보다 지나는 층의 음속이 중요하다. 곧게 간 소리가 약 1초 늦다.</p></article>
+      <article><span class="eyebrow">적용</span><h3>해저 탐사로 확장</h3><p>수직 빔은 ω = 0 이라 휘지 않는다. 정확한 깊이를 얻으려면 깊이별 음속 보정이 필요하다.</p></article>
+    </div>
+    <p class="limits">한계: 음속은 예시 데이터(가정값) · 소리를 선으로 근사(50 Hz 파장 약 30 m) · 흡수·반사 손실 무시</p>
+  </section>
+
+  <footer>
+    <span>자유탐구 발표 「바다는 소리를 어떻게 가두는가 — 깊이에 따른 음속 변화와 SOFAR 채널의 음선 분석」을 바탕으로 만든 시뮬레이션</span>
+    <span>모든 수치는 발표의 예시 음속 프로필(1520 / 1480 / 1530 m/s) 기준</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+/* ================= physics model ================= */
+const V0 = 1480, ZA = 1000, ZF = 4000, K1 = 0.04, K2 = 50 / 3000;
+const R1 = V0 / K1, R2 = V0 / K2;
+const speed = z => z < ZA ? V0 + K1 * (ZA - z) : V0 + K2 * (z - ZA);
+const kOf = z => z < ZA ? K1 : K2;
+const D2R = Math.PI / 180;
+
+// Ray trace exactly like the slide: move, rotate toward axis, update speed, repeat.
+// a > 0 means heading upward (toward surface). z = depth (m, down positive).
+function trace(deg, { dt = 0.001, xmax = 200000, sample = 0.1, floor = ZF } = {}) {
+  let x = 0, z = ZA, a = deg * D2R, t = 0;
+  const pts = [[0, ZA]];
+  let nextS = sample, minZ = ZA, maxZ = ZA, end = 'reach', endX = null;
+  const ups = []; // upward axis crossings [x,t]
+  if (deg > 0) ups.push([0, 0]);
+  const maxT = 400;
+  while (x < xmax && t < maxT) {
+    const v = speed(z);
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const nx = x + v * ca * dt, nz = z - v * sa * dt;
+    if (nz <= 0) { // surface
+      const f = z / (z - nz); x += (nx - x) * f; z = 0; t += dt * f;
+      end = 'surface'; endX = x; minZ = 0; pts.push([x, z]); break;
+    }
+    if (nz >= floor) {
+      const f = (floor - z) / (nz - z); x += (nx - x) * f; z = floor; t += dt * f;
+      end = 'floor'; endX = x; maxZ = floor; pts.push([x, z]); break;
+    }
+    if (z > ZA && nz <= ZA && deg !== 0) { const f = (z - ZA) / (z - nz); ups.push([x + (nx - x) * f, t + dt * f]); }
+    const s = nz < ZA ? -1 : (nz > ZA ? 1 : 0);
+    a += s * kOf(nz) * Math.cos(a) * dt;
+    x = nx; z = nz; t += dt;
+    if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    if (t >= nextS) { pts.push([x, z]); nextS += sample; }
+  }
+  if (end === 'reach' && x > xmax) { // back up to exactly xmax
+    const v = speed(z); const over = (x - xmax) / (v * Math.cos(a));
+    t -= over; x = xmax;
+  }
+  pts.push([x, z]);
+  // period from upward crossings
+  let per = null;
+  if (ups.length >= 2) {
+    const p0 = ups[0], p1 = ups[1];
+    per = { dx: p1[0] - p0[0], dt: p1[1] - p0[1] };
+    per.v = per.dx / per.dt;
+  }
+  return { deg, pts, sample, t, end, endX, minZ, maxZ, per };
+}
+// point at time tt on traced path
+function pointAt(r, tt) {
+  tt = Math.max(0, tt || 0);
+  const n = r.pts.length;
+  const maxIdx = n - 1;
+  const fi = tt / r.sample;
+  if (fi >= maxIdx - 1) {
+    // final segment: last two points
+    if (tt >= r.t) return r.pts[maxIdx];
+    const i = Math.min(Math.floor(fi), maxIdx - 1);
+    const t0 = i * r.sample, t1 = r.t; const f = Math.max(0, Math.min(1, (tt - t0) / Math.max(1e-9, t1 - t0)));
+    const A = r.pts[i], B = r.pts[maxIdx];
+    return [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f];
+  }
+  const i = Math.floor(fi), f = fi - i, A = r.pts[i], B = r.pts[i + 1];
+  return [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f];
+}
+// one-way vertical travel time from 0 to depth D
+function verticalTime(D) {
+  let z = 0, t = 0; const dz = 0.5;
+  while (z < D) { const h = Math.min(dz, D - z); t += h / speed(z + h / 2); z += h; }
+  return t;
+}
+
+/* ================= helpers ================= */
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 1) => v.toFixed(d);
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// sound
+let audio = null, soundOn = false;
+function ensureAudio() { if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audio = null; } } if (audio && audio.state === 'suspended') audio.resume(); }
+function ping(freq = 1150, dur = 0.9, vol = 0.18) {
+  if (!soundOn || !audio) return;
+  const t0 = audio.currentTime, o = audio.createOscillator(), g = audio.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(freq, t0); o.frequency.exponentialRampToValueAtTime(freq * 0.93, t0 + dur);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(audio.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+}
+$('soundBtn').addEventListener('click', () => {
+  soundOn = !soundOn; ensureAudio();
+  $('soundBtn').setAttribute('aria-pressed', soundOn);
+  $('soundBtn').innerHTML = soundOn ? '🔊 <span class="sb-t">소나 소리 끄기</span>' : '🔈 <span class="sb-t">소나 소리 켜기</span>'; $('soundBtn').setAttribute('aria-label', soundOn ? '소나 소리 끄기' : '소나 소리 켜기');
+  if (soundOn) ping(1300, 0.6, 0.12);
+});
+
+/* ---------- scene system ---------- */
+const scenes = [];
+function Scene(canvas, ratioFn, frame) {
+  const s = { cv: canvas, ctx: canvas.getContext('2d'), w: 0, h: 0, dpr: 1, visible: true, frame, ratioFn, onResize: null };
+  const resize = () => {
+    const w = canvas.parentElement.clientWidth; if (!w) return;
+    const h = Math.round(w * ratioFn(w));
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    canvas.style.height = h + 'px';
+    s.w = w; s.h = h; s.dpr = dpr; s.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    s.onResize && s.onResize();
+  };
+  new ResizeObserver(resize).observe(canvas.parentElement);
+  new IntersectionObserver(es => es.forEach(e => s.visible = e.isIntersecting), { rootMargin: '100px' }).observe(canvas);
+  resize(); scenes.push(s); return s;
+}
+
+/* ---------- ocean cross-section renderer ---------- */
+function Ocean(scene, { xmaxKm = 200, skyFrac = 0.08 } = {}) {
+  const o = { xmaxKm, bg: null, parts: [] };
+  for (let i = 0; i < 70; i++) o.parts.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.3 + 0.3, s: Math.random() * 0.012 + 0.004, a: Math.random() * 0.5 + 0.15, p: Math.random() * 6.28 });
+  o.geom = () => {
+    const w = scene.w, h = scene.h, narrow = w < 560;
+    const x0 = narrow ? 34 : 50, x1 = w - (narrow ? 10 : 16), y0 = Math.max(36, Math.round(h * skyFrac)), y1 = h - (narrow ? 26 : 30);
+    return { x0, x1, y0, y1, w, h, narrow };
+  };
+  o.X = (xm, g) => g.x0 + xm / (o.xmaxKm * 1000) * (g.x1 - g.x0);
+  o.Y = (z, g) => g.y0 + z / ZF * (g.y1 - g.y0);
+  o.exag = g => ((o.xmaxKm * 1000) / (g.x1 - g.x0)) / (ZF / (g.y1 - g.y0));
+  o.build = () => {
+    const g = o.geom(), dpr = scene.dpr;
+    const c = document.createElement('canvas'); c.width = Math.round(g.w * dpr); c.height = Math.round(g.h * dpr);
+    const x = c.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // sky
+    const sk = x.createLinearGradient(0, 0, 0, g.y0);
+    sk.addColorStop(0, '#04131f'); sk.addColorStop(1, '#0d3a52');
+    x.fillStyle = sk; x.fillRect(0, 0, g.w, g.y0);
+    // water rows coloured by sound speed
+    for (let y = g.y0; y < g.y1; y++) {
+      const z = (y - g.y0) / (g.y1 - g.y0) * ZF;
+      const f = clamp((speed(z) - 1480) / 50, 0, 1);
+      const dark = 1 - 0.42 * z / ZF;
+      const lift = z < 500 ? (1 - z / 500) * 22 : 0;
+      const r = (lerp(12, 10, f) * dark + lift * 0.4) | 0, gg = (lerp(20, 96, f) * dark + lift) | 0, b = (lerp(66, 112, f) * dark + lift) | 0;
+      x.fillStyle = `rgb(${r},${gg},${b})`; x.fillRect(0, y, g.w, 1);
+    }
+    // light shafts
+    x.save(); x.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 6; i++) {
+      const sx = g.w * (0.08 + i * 0.17), wid = 24 + (i % 3) * 22, slant = 60 + i * 10;
+      const lg = x.createLinearGradient(0, g.y0, 0, g.y0 + (g.y1 - g.y0) * 0.3);
+      lg.addColorStop(0, 'rgba(140,230,240,0.10)'); lg.addColorStop(1, 'rgba(140,230,240,0)');
+      x.fillStyle = lg; x.beginPath(); x.moveTo(sx, g.y0); x.lineTo(sx + wid, g.y0); x.lineTo(sx + wid + slant, g.y0 + (g.y1 - g.y0) * 0.3); x.lineTo(sx + slant - wid * 0.5, g.y0 + (g.y1 - g.y0) * 0.3); x.closePath(); x.fill();
+    }
+    x.restore();
+    // grid + depth labels
+    x.font = `${g.narrow ? 9 : 10}px "JetBrains Mono", monospace`; x.textBaseline = 'middle';
+    for (let z = 0; z <= ZF; z += 1000) {
+      const y = o.Y(z, g);
+      x.strokeStyle = 'rgba(160,230,240,0.06)'; x.lineWidth = 1; x.beginPath(); x.moveTo(g.x0, y + 0.5); x.lineTo(g.x1, y + 0.5); x.stroke();
+      if (z > 0 && z < ZF) { x.fillStyle = 'rgba(170,215,225,0.6)'; x.textAlign = 'right'; x.fillText(g.narrow ? `${z / 1000}k` : `${z} m`, g.x0 - 6, y); }
+    }
+    x.fillStyle = 'rgba(170,215,225,0.6)'; x.textAlign = 'right'; x.fillText('0', g.x0 - 6, g.y0);
+    // SOFAR axis band
+    const ya = o.Y(ZA, g);
+    const band = x.createLinearGradient(0, ya - 40, 0, ya + 40);
+    band.addColorStop(0, 'rgba(94,242,223,0)'); band.addColorStop(0.5, 'rgba(94,242,223,0.09)'); band.addColorStop(1, 'rgba(94,242,223,0)');
+    x.fillStyle = band; x.fillRect(g.x0, ya - 40, g.x1 - g.x0, 80);
+    x.setLineDash([6, 6]); x.strokeStyle = 'rgba(94,242,223,0.55)'; x.lineWidth = 1; x.beginPath(); x.moveTo(g.x0, ya + 0.5); x.lineTo(g.x1, ya + 0.5); x.stroke(); x.setLineDash([]);
+    x.textAlign = 'left'; x.fillStyle = 'rgba(94,242,223,0.85)'; x.font = `${g.narrow ? 9.5 : 11}px "IBM Plex Sans KR", sans-serif`;
+    x.fillText(g.narrow ? 'SOFAR 축 1480 m/s' : 'SOFAR 축 · 가장 느린 층 1480 m/s', g.x0 + 26, ya - 11);
+    // seafloor
+    const fl = x.createLinearGradient(0, g.y1, 0, g.h);
+    fl.addColorStop(0, '#1a2a30'); fl.addColorStop(1, '#060d11');
+    x.fillStyle = fl; x.beginPath(); x.moveTo(0, g.h); x.lineTo(0, g.y1);
+    for (let px = 0; px <= g.w; px += 6) x.lineTo(px, g.y1 - 1.5 - Math.abs(Math.sin(px * 0.031) * 2 + Math.sin(px * 0.11) * 1.2));
+    x.lineTo(g.w, g.h); x.closePath(); x.fill();
+    x.strokeStyle = 'rgba(255,122,134,0.25)'; x.lineWidth = 1; x.beginPath(); x.moveTo(g.x0, g.y1 + 0.5); x.lineTo(g.x1, g.y1 + 0.5); x.stroke();
+    // rocks
+    for (let i = 0; i < 26; i++) { const rx = (i * 97.3) % g.w, rr = 2 + (i % 4); x.fillStyle = 'rgba(40,60,66,0.8)'; x.beginPath(); x.ellipse(rx, g.y1 + rr * 0.6, rr * 1.6, rr, 0, 0, Math.PI * 2); x.fill(); }
+    // distance labels
+    x.fillStyle = 'rgba(170,215,225,0.55)'; x.font = `${g.narrow ? 9 : 10}px "JetBrains Mono", monospace`; x.textBaseline = 'alphabetic';
+    const step = o.xmaxKm >= 150 ? 50 : (o.xmaxKm >= 60 ? 20 : 10);
+    for (let k = 0; k <= o.xmaxKm; k += step) { const px = o.X(k * 1000, g); x.textAlign = k === 0 ? 'left' : (k === o.xmaxKm ? 'right' : 'center'); x.fillText(k === o.xmaxKm ? `${k} km` : `${k}`, px, g.h - 8); }
+    o.bg = c; o.g = g;
+  };
+  scene.onResize = () => o.build();
+  o.draw = (ctx, time) => {
+    if (!o.bg) o.build();
+    const g = o.g;
+    ctx.drawImage(o.bg, 0, 0, g.w, g.h);
+    // animated surface
+    ctx.strokeStyle = 'rgba(190,250,255,0.55)'; ctx.lineWidth = 1.4; ctx.beginPath();
+    for (let px = 0; px <= g.w; px += 4) { const yy = g.y0 + Math.sin(px * 0.045 + time * 1.6) * 1.6 + Math.sin(px * 0.013 - time * 0.9) * 1.2; px ? ctx.lineTo(px, yy) : ctx.moveTo(px, yy); }
+    ctx.stroke();
+    // marine snow
+    ctx.fillStyle = '#cfefff';
+    for (const p of o.parts) {
+      if (!reduce) { p.y += p.s * 0.016; p.x += Math.sin(time * 0.6 + p.p) * 0.00012; if (p.y > 1) { p.y = 0; p.x = Math.random(); } }
+      ctx.globalAlpha = p.a * 0.6; ctx.beginPath(); ctx.arc(p.x * g.w, g.y0 + p.y * (g.y1 - g.y0), p.r, 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  };
+  return o;
+}
+
+function drawSource(ctx, x, y, time, col = '94,242,223') {
+  const pulse = (time * 0.8) % 1;
+  ctx.strokeStyle = `rgba(${col},${0.5 * (1 - pulse)})`; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, 4 + pulse * 18, 0, 6.283); ctx.stroke();
+  const rg = ctx.createRadialGradient(x, y, 0, x, y, 12); rg.addColorStop(0, `rgba(${col},0.9)`); rg.addColorStop(1, `rgba(${col},0)`);
+  ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, 12, 0, 6.283); ctx.fill();
+  ctx.fillStyle = '#eafffb'; ctx.beginPath(); ctx.arc(x, y, 3, 0, 6.283); ctx.fill();
+}
+function drawReceiver(ctx, x, yAxis, yFloor, lit) {
+  ctx.strokeStyle = 'rgba(200,220,225,0.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, yFloor); ctx.lineTo(x, yAxis - 14); ctx.stroke();
+  ctx.fillStyle = '#ffcf5a'; ctx.beginPath(); ctx.arc(x, yAxis - 18, 5, 0, 6.283); ctx.fill(); // float
+  ctx.fillStyle = lit ? '#eafffb' : '#2b4855'; ctx.strokeStyle = 'rgba(94,242,223,0.9)'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 4, yAxis - 6, 8, 12, 3) : ctx.rect(x - 4, yAxis - 6, 8, 12); ctx.fill(); ctx.stroke();
+  if (lit) { const rg = ctx.createRadialGradient(x, yAxis, 0, x, yAxis, 26); rg.addColorStop(0, 'rgba(94,242,223,0.55)'); rg.addColorStop(1, 'rgba(94,242,223,0)'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, yAxis, 26, 0, 6.283); ctx.fill(); }
+  ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x - 5, yFloor - 4, 10, 5); // anchor
+}
+function drawShip(ctx, x, y, s = 1) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.fillStyle = '#0b1c26'; ctx.strokeStyle = 'rgba(190,240,245,0.55)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-34, -8); ctx.lineTo(34, -8); ctx.lineTo(26, 5); ctx.lineTo(-28, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillRect(-14, -18, 22, 10); ctx.strokeRect(-14, -18, 22, 10);
+  ctx.beginPath(); ctx.moveTo(14, -8); ctx.lineTo(14, -30); ctx.stroke();
+  ctx.fillStyle = '#ffcf5a'; ctx.fillRect(-10, -15, 3, 3); ctx.fillRect(-4, -15, 3, 3); ctx.fillRect(2, -15, 3, 3);
+  ctx.fillStyle = '#ff7a86'; ctx.beginPath(); ctx.arc(14, -31, 1.8, 0, 6.283); ctx.fill();
+  ctx.restore();
+}
+// glowing ray path up to time tt
+function drawRay(ctx, oc, r, tt, color, alpha = 1) {
+  const g = oc.g; const n = r.pts.length;
+  const last = Math.min(n - 1, Math.floor(tt / r.sample));
+  const head = pointAt(r, Math.min(tt, r.t));
+  const path = () => {
+    ctx.beginPath();
+    for (let i = 0; i <= last; i++) { const p = r.pts[i]; const px = oc.X(p[0], g), py = oc.Y(p[1], g); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.lineTo(oc.X(head[0], g), oc.Y(head[1], g));
+  };
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  path(); ctx.strokeStyle = color; ctx.globalAlpha = 0.10 * alpha; ctx.lineWidth = 7; ctx.stroke();
+  ctx.globalAlpha = 0.28 * alpha; ctx.lineWidth = 3; ctx.stroke();
+  ctx.globalAlpha = 0.95 * alpha; ctx.lineWidth = 1.3; ctx.stroke();
+  ctx.restore();
+  return head;
+}
+function drawHead(ctx, oc, head, color) {
+  const g = oc.g, x = oc.X(head[0], g), y = oc.Y(head[1], g);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const rg = ctx.createRadialGradient(x, y, 0, x, y, 11); rg.addColorStop(0, color); rg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, 11, 0, 6.283); ctx.fill();
+  ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, 2.2, 0, 6.283); ctx.fill();
+  ctx.restore();
+}
+function splash(ctx, x, y, age, color) {
+  if (age > 1.6) return;
+  ctx.save(); ctx.strokeStyle = color; ctx.globalAlpha = Math.max(0, 1 - age / 1.6);
+  for (let i = 0; i < 3; i++) { const rr = 4 + (age * 26) + i * 6; ctx.beginPath(); ctx.ellipse(x, y, rr, rr * 0.35, 0, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.restore();
+}
+const ratioSection = w => w < 560 ? 0.78 : (w < 820 ? 0.56 : 0.48);
+
+/* ================= HERO ================= */
+{
+  const sc = Scene($('heroCv'), w => w < 560 ? 0.7 : 0.36, null);
+  const oc = Ocean(sc, { skyFrac: 0.07 });
+  const angles = []; for (let a = -14; a <= 14; a += 2) angles.push(a);
+  const rays = angles.map(a => trace(a, { dt: 0.002, sample: 0.25 }));
+  const SPEED = 24; let t0 = performance.now();
+  sc.frame = (now) => {
+    const ctx = sc.ctx, time = now / 1000;
+    oc.draw(ctx, time);
+    const g = oc.g;
+    let tt = ((now - t0) / 1000) * SPEED; const cycle = 150;
+    if (reduce) tt = 140;
+    const loopT = tt % (cycle + 30), fade = loopT > cycle ? 1 - (loopT - cycle) / 30 : 1;
+    const shown = Math.min(loopT, cycle);
+    rays.forEach(r => {
+      const esc = r.end !== 'reach';
+      const col = esc ? 'rgba(255,181,71,1)' : `hsl(${172 + Math.abs(r.deg) * 3.2},90%,${70 - Math.abs(r.deg)}%)`;
+      const h = drawRay(ctx, oc, r, shown, col, fade);
+      if (shown < r.t) drawHead(ctx, oc, h, col);
+      else if (r.end === 'surface') splash(ctx, oc.X(r.endX, g), g.y0, (shown - r.t) / SPEED, 'rgba(255,181,71,0.9)');
+    });
+    drawSource(ctx, oc.X(0, g), oc.Y(ZA, g), time);
+    drawReceiver(ctx, oc.X(200000, g) - 2, oc.Y(ZA, g), g.y1, shown > 134 && shown < 145);
+    $('heroClock').textContent = 'T+' + fmt(shown, 1).padStart(5, '0') + ' s';
+    $('heroExag').textContent = `세로 ${Math.round(oc.exag(g))}배 과장`;
+  };
+}
+
+/* ================= ST.01 CTD ================= */
+{
+  const sc = Scene($('ctdCv'), w => w < 560 ? 1.05 : 0.62, null);
+  const temp = z => z < ZA ? 4 + 16 * Math.pow(1 - z / ZA, 1.6) : 4 - 2 * (z - ZA) / 3000;
+  const pres = z => 1 + z / 10.08;
+  let depth = 0, rec = new Map(), dive = null, parts = [];
+  for (let i = 0; i < 40; i++) parts.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.2 + 0.3, s: Math.random() * 0.01 + 0.004 });
+  const bubbles = [];
+  const geo = () => {
+    const w = sc.w, h = sc.h, colW = Math.max(130, Math.round(w * 0.36));
+    const y0 = Math.max(44, Math.round(h * 0.13)), y1 = h - 34;
+    return { w, h, colW, y0, y1, cx0: colW + 46, cx1: w - 18 };
+  };
+  const Y = (z, g) => g.y0 + z / ZF * (g.y1 - g.y0);
+  const SX = (s, g) => g.cx0 + (s - 1470) / 70 * (g.cx1 - g.cx0);
+  let bg = null;
+  const build = () => {
+    const g = geo(), dpr = sc.dpr, c = document.createElement('canvas'); c.width = g.w * dpr; c.height = g.h * dpr;
+    const x = c.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    x.fillStyle = '#04111c'; x.fillRect(0, 0, g.w, g.h);
+    const sk = x.createLinearGradient(0, 0, 0, g.y0); sk.addColorStop(0, '#04131f'); sk.addColorStop(1, '#0f4660');
+    x.fillStyle = sk; x.fillRect(0, 0, g.colW, g.y0);
+    for (let y = g.y0; y < g.y1; y++) {
+      const z = (y - g.y0) / (g.y1 - g.y0) * ZF, d = 1 - 0.75 * Math.pow(z / ZF, 0.6);
+      x.fillStyle = `rgb(${(8 * d) | 0},${(70 * d + 8) | 0},${(104 * d + 10) | 0})`; x.fillRect(0, y, g.colW, 1);
+    }
+    x.fillStyle = '#0d1a20'; x.fillRect(0, g.y1, g.colW, g.h - g.y1);
+    // chart panel
+    x.fillStyle = 'rgba(0,0,0,0.25)'; x.fillRect(g.colW, 0, g.w - g.colW, g.h);
+    x.strokeStyle = 'rgba(118,222,226,0.18)'; x.beginPath(); x.moveTo(g.colW + 0.5, 0); x.lineTo(g.colW + 0.5, g.h); x.stroke();
+    x.font = '10px "JetBrains Mono", monospace'; x.textBaseline = 'middle';
+    for (let z = 0; z <= ZF; z += 500) {
+      const y = Y(z, g); x.strokeStyle = z % 1000 ? 'rgba(160,230,240,0.04)' : 'rgba(160,230,240,0.1)';
+      x.beginPath(); x.moveTo(g.cx0, y + .5); x.lineTo(g.cx1, y + .5); x.stroke();
+      if (z % 1000 === 0) { x.fillStyle = 'rgba(170,215,225,0.6)'; x.textAlign = 'right'; x.fillText(`${z}`, g.cx0 - 6, y); }
+    }
+    x.textBaseline = 'alphabetic';
+    for (let s = 1480; s <= 1540; s += 20) {
+      const px = SX(s, g); x.strokeStyle = 'rgba(160,230,240,0.07)'; x.beginPath(); x.moveTo(px + .5, g.y0); x.lineTo(px + .5, g.y1); x.stroke();
+      x.fillStyle = 'rgba(170,215,225,0.6)'; x.textAlign = 'center'; x.fillText(`${s}`, px, g.y1 + 16);
+    }
+    x.textAlign = 'right'; x.fillStyle = 'rgba(170,215,225,0.5)'; x.fillText('음속 (m/s) →', g.cx1, g.h - 4);
+    x.textAlign = 'left'; x.fillText('수심 (m)', g.colW + 8, g.y0 - 14);
+    bg = c;
+  };
+  sc.onResize = build;
+  const update = () => {
+    const s = speed(depth);
+    $('depthLbl').textContent = `${depth} m`;
+    $('roSpeed').innerHTML = `${fmt(s, 1)}<small>m/s</small>`;
+    $('roTemp').innerHTML = `${fmt(temp(depth), 1)}<small>°C</small>`;
+    $('roPres').innerHTML = `${fmt(pres(depth), 0)}<small>기압</small>`;
+    const key = Math.round(depth / 50) * 50; rec.set(key, speed(key));
+    let best = null; rec.forEach((v, k) => { if (!best || v < best[1]) best = [k, v]; });
+    if (best) $('roSlow').innerHTML = `${best[0]} m · ${fmt(best[1], 1)}<small>m/s</small>`;
+    const covered = rec.size;
+    const msg = $('ctdMsg');
+    const hasAbove = [...rec.keys()].some(k => k < 800), hasBelow = [...rec.keys()].some(k => k > 1300);
+    if (best && best[0] === 1000 && hasAbove && hasBelow) { msg.innerHTML = '<b class="hl">발견!</b> 수심 1000 m가 가장 느려요. 위로 가도, 아래로 가도 빨라지죠. 여기가 <b class="hl">SOFAR 채널</b>의 축입니다.'; msg.className = 'msg'; }
+    else if (covered > 3 && depth > 1300 && !hasAbove) { msg.textContent = '얕은 곳도 재 봐야 비교할 수 있어요.'; msg.className = 'msg amber'; }
+    else if (depth > 1100 && speed(depth) > speed(depth - 100)) { msg.textContent = '어? 더 내려갔는데 다시 빨라지고 있어요. 왜일까요?'; msg.className = 'msg amber'; }
+    else if (depth > 50 && depth < 1000) { msg.textContent = '내려갈수록 느려지고 있어요. 계속 내려가 볼까요?'; msg.className = 'msg'; }
+  };
+  $('depth').addEventListener('input', e => { dive = null; depth = +e.target.value; update(); });
+  $('autoDive').addEventListener('click', () => { ensureAudio(); dive = { t0: performance.now(), from: 0 }; rec.clear(); });
+  $('clearCtd').addEventListener('click', () => { rec.clear(); dive = null; depth = 0; $('depth').value = 0; $('roSlow').textContent = '아직 기록 없음'; update(); rec.clear(); $('roSlow').textContent = '아직 기록 없음'; $('ctdMsg').textContent = '프로브를 내리면 오른쪽 그래프에 점이 찍혀요.'; $('ctdMsg').className = 'msg'; });
+  // drag on canvas
+  let dragging = false;
+  const setFromY = ev => { const g = geo(), r = sc.cv.getBoundingClientRect(); const y = ev.clientY - r.top; depth = clamp(Math.round(((y - g.y0) / (g.y1 - g.y0) * ZF) / 10) * 10, 0, ZF); $('depth').value = depth; dive = null; update(); };
+  sc.cv.addEventListener('pointerdown', e => { dragging = true; sc.cv.setPointerCapture(e.pointerId); setFromY(e); });
+  sc.cv.addEventListener('pointermove', e => { if (dragging) setFromY(e); });
+  sc.cv.addEventListener('pointerup', () => dragging = false);
+  sc.cv.style.cursor = 'ns-resize'; sc.cv.style.touchAction = 'pan-x';
+  sc.frame = (now) => {
+    if (dive) {
+      const p = clamp((now - dive.t0) / 9000, 0, 1); depth = Math.round(p * ZF / 10) * 10; $('depth').value = depth; update();
+      if (p >= 1) dive = null;
+    }
+    if (!bg) build();
+    const ctx = sc.ctx, g = geo(), time = now / 1000;
+    ctx.drawImage(bg, 0, 0, g.w, g.h);
+    // surface
+    ctx.strokeStyle = 'rgba(190,250,255,0.6)'; ctx.lineWidth = 1.3; ctx.beginPath();
+    for (let px = 0; px <= g.colW; px += 3) { const yy = g.y0 + Math.sin(px * 0.06 + time * 1.7) * 1.5; px ? ctx.lineTo(px, yy) : ctx.moveTo(px, yy); } ctx.stroke();
+    // snow
+    ctx.fillStyle = '#cfefff';
+    for (const p of parts) { if (!reduce) { p.y += p.s * 0.016; if (p.y > 1) { p.y = 0; p.x = Math.random(); } } ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(p.x * g.colW, g.y0 + p.y * (g.y1 - g.y0), p.r, 0, 6.283); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    // ship + cable + probe
+    const sx = g.colW * 0.5; drawShip(ctx, sx, g.y0 - 2, g.w < 560 ? 0.8 : 1);
+    const py = Y(depth, g);
+    ctx.strokeStyle = 'rgba(220,240,245,0.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx + 26, g.y0 - 6); ctx.lineTo(sx + 26, py - 8); ctx.stroke();
+    const lg = ctx.createRadialGradient(sx + 26, py, 0, sx + 26, py, 34); lg.addColorStop(0, 'rgba(255,230,160,0.35)'); lg.addColorStop(1, 'rgba(255,230,160,0)');
+    ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(sx + 26, py, 34, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#c9d6da'; ctx.fillRect(sx + 21, py - 9, 10, 18); ctx.fillStyle = '#ffcf5a'; ctx.fillRect(sx + 21, py + 5, 10, 4);
+    if (!reduce && (dive || dragging) && Math.random() < 0.3) bubbles.push({ x: sx + 26 + (Math.random() - 0.5) * 8, y: py - 10, r: Math.random() * 2 + 1, life: 1 });
+    for (let i = bubbles.length - 1; i >= 0; i--) { const b = bubbles[i]; b.y -= 0.7; b.x += Math.sin(b.y * 0.1) * 0.3; b.life -= 0.012; if (b.life <= 0) { bubbles.splice(i, 1); continue; } ctx.strokeStyle = `rgba(200,245,255,${b.life * 0.6})`; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 6.283); ctx.stroke(); }
+    // depth tag on column
+    ctx.font = '600 11px "JetBrains Mono", monospace'; ctx.fillStyle = '#eafffb'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(`${depth} m`, Math.min(sx + 38, g.colW - 56), py);
+    // axis hint
+    const ya = Y(ZA, g);
+    // connector line
+    ctx.setLineDash([3, 4]); ctx.strokeStyle = 'rgba(94,242,223,0.35)'; ctx.beginPath(); ctx.moveTo(g.colW, py); ctx.lineTo(SX(speed(depth), g), py); ctx.stroke(); ctx.setLineDash([]);
+    // recorded points
+    const keys = [...rec.keys()].sort((a, b) => a - b);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    if (keys.length > 1) {
+      ctx.strokeStyle = 'rgba(94,242,223,0.35)'; ctx.lineWidth = 2; ctx.beginPath();
+      keys.forEach((k, i) => { const px = SX(rec.get(k), g), yy = Y(k, g); i ? ctx.lineTo(px, yy) : ctx.moveTo(px, yy); }); ctx.stroke();
+    }
+    keys.forEach(k => { const px = SX(rec.get(k), g), yy = Y(k, g); ctx.fillStyle = 'rgba(94,242,223,0.9)'; ctx.beginPath(); ctx.arc(px, yy, 2.6, 0, 6.283); ctx.fill(); });
+    ctx.restore();
+    // current marker
+    const cx = SX(speed(depth), g);
+    const rg = ctx.createRadialGradient(cx, py, 0, cx, py, 14); rg.addColorStop(0, 'rgba(94,242,223,0.8)'); rg.addColorStop(1, 'rgba(94,242,223,0)');
+    ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(cx, py, 14, 0, 6.283); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, py, 3.2, 0, 6.283); ctx.fill();
+    // label slowest found
+    let best = null; rec.forEach((v, k) => { if (!best || v < best[1]) best = [k, v]; });
+    if (best && best[0] === 1000 && keys.length > 8) {
+      ctx.strokeStyle = 'rgba(255,181,71,0.8)'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(g.cx0, ya); ctx.lineTo(g.cx1, ya); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#ffb547'; ctx.font = '12px "IBM Plex Sans KR", sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+      ctx.fillText('1480 m/s · 최소', g.cx1, ya - 6);
+    }
+  };
+  update(); rec.clear(); $('roSlow').textContent = '아직 기록 없음';
+}
+
+/* ================= ST.02 wavefront ================= */
+{
+  const sc = Scene($('waveCv'), w => w < 560 ? 0.85 : 0.62, null);
+  const L = 70, V = 90; let st, ghosts, trail, lastG;
+  const reset = () => { st = { x: 40, y: sc.h * 0.22, a: 0 }; ghosts = []; trail = []; lastG = 0; };
+  reset(); sc.onResize = reset;
+  let dvPx = 0;
+  const setDv = () => { const v = +$('dv').value; dvPx = v * 0.55; $('dvLbl').textContent = v === 0 ? '없음' : (v < 30 ? '작게' : (v < 70 ? '보통' : '크게')); };
+  $('dv').addEventListener('input', () => { setDv(); reset(); }); setDv();
+  let prev = performance.now(), simT = 0;
+  sc.frame = (now) => {
+    const dt = clamp((now - prev) / 1000, 0, 0.05); prev = now; simT += dt;
+    const ctx = sc.ctx, w = sc.w, h = sc.h;
+    const bgG = ctx.createLinearGradient(0, 0, 0, h); bgG.addColorStop(0, '#0e5d6e'); bgG.addColorStop(1, '#0a1640');
+    ctx.fillStyle = bgG; ctx.fillRect(0, 0, w, h);
+    // speed bands labels
+    ctx.font = '12px "IBM Plex Sans KR", sans-serif'; ctx.fillStyle = 'rgba(220,250,250,0.75)'; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('빠른 물 ↑ (따뜻함)', w - 14, 26); ctx.fillText('느린 물 ↓ (1000 m 쪽)', w - 14, h - 14);
+    // horizontal speed arrows field
+    for (let yy = 40; yy < h - 20; yy += 34) {
+      const len = 16 + (1 - yy / h) * (dvPx * 0.5);
+      ctx.strokeStyle = 'rgba(200,240,245,0.08)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(14, yy); ctx.lineTo(14 + len, yy); ctx.lineTo(10 + len, yy - 3); ctx.moveTo(14 + len, yy); ctx.lineTo(10 + len, yy + 3); ctx.stroke();
+    }
+    // physics: top end faster than bottom end by dvPx
+    const vt = V + dvPx / 2, vb = V - dvPx / 2, om = (vt - vb) / L;
+    const steps = 4; for (let i = 0; i < steps; i++) { const d = dt / steps; st.x += V * Math.cos(st.a) * d; st.y += V * Math.sin(st.a) * d; st.a += om * Math.cos(st.a) * d * 1.0; }
+    trail.push([st.x, st.y]); if (trail.length > 900) trail.shift();
+    const nx = -Math.sin(st.a), ny = Math.cos(st.a); // normal pointing "down" side of front
+    const top = [st.x - nx * L / 2, st.y - ny * L / 2], bot = [st.x + nx * L / 2, st.y + ny * L / 2];
+    if (simT - lastG > 0.45) { ghosts.push([top, bot]); lastG = simT; if (ghosts.length > 40) ghosts.shift(); }
+    ghosts.forEach((gq, i) => { ctx.strokeStyle = `rgba(94,242,223,${0.08 + 0.25 * i / ghosts.length})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(gq[0][0], gq[0][1]); ctx.lineTo(gq[1][0], gq[1][1]); ctx.stroke(); });
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,220,150,0.5)'; ctx.lineWidth = 1.5; ctx.setLineDash([2, 5]); ctx.beginPath(); trail.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); ctx.restore();
+    // front
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = '#5ef2df'; ctx.lineWidth = 4; ctx.shadowColor = '#5ef2df'; ctx.shadowBlur = 14; ctx.beginPath(); ctx.moveTo(top[0], top[1]); ctx.lineTo(bot[0], bot[1]); ctx.stroke(); ctx.restore();
+    // speed arrows at ends
+    const arrow = (p, len, col, lab) => {
+      const ex = p[0] + Math.cos(st.a) * len, ey = p[1] + Math.sin(st.a) * len;
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(ex, ey); ctx.stroke();
+      const ah = 7, an = st.a; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - ah * Math.cos(an - 0.45), ey - ah * Math.sin(an - 0.45)); ctx.lineTo(ex - ah * Math.cos(an + 0.45), ey - ah * Math.sin(an + 0.45)); ctx.closePath(); ctx.fill();
+      ctx.font = '11px "IBM Plex Sans KR", sans-serif'; ctx.textAlign = 'left'; ctx.fillText(lab, ex + 6, ey + 4);
+    };
+    arrow(top, vt * 0.45, '#ffcf5a', '빠름'); arrow(bot, vb * 0.45, '#9fb8ff', '느림');
+    // direction arrow from center
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(st.x, st.y); ctx.lineTo(st.x + Math.cos(st.a) * 60, st.y + Math.sin(st.a) * 60); ctx.stroke(); ctx.setLineDash([]);
+    $('roAng').textContent = `${fmt(-st.a / D2R, 0)}°`;
+    $('roOmega').innerHTML = `${fmt(om * Math.cos(st.a), 2)}<small>rad/s</small>`;
+    if (st.x > w + 60 || st.y > h + 60 || st.y < -60 || st.x < -80 || st.a > 1.6 * Math.PI) reset();
+  };
+}
+
+/* ================= ST.03 ray launcher ================= */
+{
+  const sc = Scene($('rayCv'), ratioSection, null);
+  const oc = Ocean(sc, { skyFrac: 0.08 });
+  let rays = []; let showCircle = true; const SPEED = 26;
+  const log = new Map();
+  const colFor = r => r.end === 'surface' ? '#ffb547' : (r.end === 'floor' ? '#ff7a86' : `hsl(${170 + Math.abs(r.deg) * 3},90%,${72 - Math.abs(r.deg) * 0.9}%)`);
+  const describe = r => {
+    const el = $('roResult');
+    if (r.end === 'surface') { el.textContent = `해수면 도달 · ${fmt(r.endX / 1000, 1)} km`; el.className = 'v warn'; }
+    else if (r.end === 'floor') { el.textContent = `해저 충돌 · ${fmt(r.endX / 1000, 1)} km`; el.className = 'v bad'; }
+    else { el.textContent = '갇힘 · 200 km 도달'; el.className = 'v'; }
+    el.style.fontSize = '22px';
+    $('roTop').innerHTML = r.deg === 0 ? '1000<small>m</small>' : `${Math.round(r.minZ)}<small>m</small>`;
+    const a = Math.abs(r.deg) * D2R, rise = R1 * (1 - Math.cos(a)), pz = ZA - rise;
+    $('roPred').innerHTML = pz <= 0 ? '<span class="hl-amber">해수면 도달</span>' : `${Math.round(pz)}<small>m</small>`;
+  };
+  const updateLog = () => {
+    const box = $('angLog'); box.innerHTML = '';
+    const ks = [...log.keys()].sort((a, b) => a - b);
+    ks.forEach(k => { const s = document.createElement('span'); const e = log.get(k); s.className = 'chip' + (e === 'surface' ? ' out' : (e === 'floor' ? ' floor' : '')); s.textContent = `${k > 0 ? '+' : ''}${k.toFixed(2)}°`; box.appendChild(s); });
+    // mission check (by magnitude, upward/downward symmetric enough for surface)
+    let maxTrap = -1, minOut = 99;
+    log.forEach((e, k) => { const m = Math.abs(k); if (e === 'reach') maxTrap = Math.max(maxTrap, m); if (e === 'surface') minOut = Math.min(minOut, m); });
+    const msg = $('rayMsg');
+    if (maxTrap >= 0 && minOut < 99 && minOut - maxTrap <= 0.26 && minOut > maxTrap) { msg.innerHTML = `<b class="hl">경계 발견!</b> ${maxTrap.toFixed(2)}°까지는 갇히고 ${minOut.toFixed(2)}°부터는 해수면에 닿아요. 원운동 예측(13.4°)과 거의 같죠.`; msg.className = 'msg'; }
+    else if (maxTrap >= 0 && minOut < 99) { msg.innerHTML = `지금까지: <b class="hl">${maxTrap.toFixed(2)}°</b>까지 갇힘, <b class="hl-amber">${minOut.toFixed(2)}°</b>부터 탈출. 그 사이를 더 좁혀 보세요.`; msg.className = 'msg amber'; }
+  };
+  const launch = (deg, silent) => {
+    const r = trace(deg, { dt: 0.001, sample: 0.1 }); r.born = performance.now(); r.col = colFor(r);
+    rays.push(r); if (rays.length > 40) rays.shift();
+    log.set(deg, r.end); if (!silent) { describe(r); updateLog(); }
+    return r;
+  };
+  $('ang').addEventListener('input', e => { const v = +e.target.value; $('angLbl').textContent = `${v > 0 ? '+' : ''}${v.toFixed(2)}°`; });
+  $('fire').addEventListener('click', () => { ensureAudio(); ping(1150, 0.9); launch(+$('ang').value); });
+  $('fan').addEventListener('click', () => { ensureAudio(); ping(900, 1.2); rays = []; for (let a = -16; a <= 16; a += 2) launch(a, true); describe(rays[rays.length - 1]); $('roResult').textContent = '부채꼴: 주황 = 해수면 도달'; $('roResult').className = 'v'; updateLog(); });
+  $('clearRays').addEventListener('click', () => { rays = []; $('roResult').textContent = '발사 대기'; $('roResult').className = 'v'; $('roTop').textContent = '—'; $('roPred').textContent = '—'; });
+  $('circleBtn').addEventListener('click', e => { showCircle = !showCircle; e.currentTarget.setAttribute('aria-pressed', showCircle); });
+  launch(8, false); launch(13.5, true); log.clear(); updateLog(); $('angLog').innerHTML = '<span class="note">아직 없음</span>';
+  rays.forEach(r => r.born -= 8000); describe(rays[0]);
+  sc.frame = (now) => {
+    const ctx = sc.ctx, time = now / 1000; oc.draw(ctx, time); const g = oc.g;
+    let maxT = 0;
+    rays.forEach(r => {
+      const tt = reduce ? 1e9 : Math.max(0, (now - r.born) / 1000 * SPEED); maxT = Math.max(maxT, Math.min(tt, r.t));
+      const h = drawRay(ctx, oc, r, tt, r.col);
+      if (tt < r.t) drawHead(ctx, oc, h, r.col);
+      else if (r.end === 'surface') splash(ctx, oc.X(r.endX, g), g.y0, (tt - r.t) / SPEED, 'rgba(255,181,71,0.9)');
+      else if (r.end === 'floor') splash(ctx, oc.X(r.endX, g), g.y1, (tt - r.t) / SPEED, 'rgba(255,122,134,0.9)');
+    });
+    // predicted circle (first arc) for last ray
+    const last = rays[rays.length - 1];
+    if (showCircle && last && last.deg !== 0) {
+      const a = Math.abs(last.deg) * D2R, up = last.deg > 0, r = up ? R1 : R2;
+      ctx.save(); ctx.setLineDash([5, 5]); ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.2; ctx.beginPath();
+      // centre in (x, height) coords; height measured toward the side the ray heads
+      const N = 80, span = 2 * a; let first = true;
+      for (let i = 0; i <= N; i++) {
+        const th = -a + span * i / N; // direction angle along arc
+        const xx = r * (Math.sin(a) + Math.sin(th)), hh = r * (Math.cos(th) - Math.cos(a));
+        const z = up ? ZA - hh : ZA + hh; if (z < 0 || z > ZF) { first = true; continue; }
+        const px = oc.X(xx, g), py = oc.Y(z, g); first ? ctx.moveTo(px, py) : ctx.lineTo(px, py); first = false;
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+      const pk = up ? ZA - r * (1 - Math.cos(a)) : ZA + r * (1 - Math.cos(a));
+      const px = oc.X(r * Math.sin(a), g), py = oc.Y(clamp(pk, 0, ZF), g);
+      ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = '11px "IBM Plex Sans KR", sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(`원운동 예측 r = ${up ? '37' : '89'} km`, px, up ? (py - 8 < g.y0 + 4 ? g.y0 + 16 : py - 8) : py + 16);
+      ctx.restore();
+    }
+    drawSource(ctx, oc.X(0, g), oc.Y(ZA, g), time);
+    $('rayClock').textContent = 'T+' + fmt(maxT, 1).padStart(5, '0') + ' s';
+    $('rayExag').textContent = `세로 ${Math.round(oc.exag(g))}배 과장`;
+  };
+}
+
+/* ================= ST.04 race ================= */
+{
+  const sc = Scene($('raceCv'), w => w < 560 ? 1.0 : (w < 820 ? 0.7 : 0.62), null);
+  const oc = Ocean(sc, { skyFrac: 0.06 });
+  const ANG = [0, 4, 8, 12];
+  const COL = { 0: '#f2ffff', 4: '#5ef2df', 8: '#6cb8ff', 12: '#c4a3ff' };
+  let dt = 0.001, rays = [], phase = 'idle', simT = 0, guess = null, arrived = [], prev = 0;
+  $('raceLegend').innerHTML = ANG.map(a => `<span><i style="background:${COL[a]}"></i>${a}°${a === 0 ? ' 수평' : ''}</span>`).join('');
+  const compute = () => { rays = ANG.map(a => trace(a, { dt, sample: 0.1 })); fillTable(); };
+  const fillTable = () => {
+    const ts = rays.map(r => r.per ? 200000 / r.per.v : r.t);
+    const minI = ts.indexOf(Math.min(...ts)), maxI = ts.indexOf(Math.max(...ts));
+    $('raceTbody').innerHTML = rays.map((r, i) => `<tr>
+      <td><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${COL[r.deg]};margin-right:8px"></span>${r.deg}°${r.deg === 0 ? ' (수평)' : ''}</td>
+      <td>${fmt(r.t, 2)} s</td>
+      <td>${r.per ? fmt(r.per.dx / 1000, 1) + ' km' : '—'}</td>
+      <td>${r.per ? fmt(r.per.dt, 1) + ' s' : '—'}</td>
+      <td>${fmt(r.per ? r.per.v : 200000 / r.t, 1)} m/s</td>
+      <td class="${i === minI ? 'best' : (i === maxI ? 'worst' : '')}">${fmt(ts[i], 2)} s</td></tr>`).join('');
+    // dt check for 12°
+    const v = [0.1, 0.01, 0.001].map(d => { const r = trace(12, { dt: d, sample: 1 }); return [d, r.per ? 200000 / r.per.v : r.t]; });
+    $('dtCheck').innerHTML = '12° 도착 (평균 속력 방식): ' + v.map(([d, t]) => `<span class="mono">Δt ${d} → ${fmt(t, 2)} s</span>`).join(' · ') + ' · 간격을 줄여도 값이 거의 같아요.';
+  };
+  document.querySelectorAll('#dtSeg button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#dtSeg button').forEach(x => x.setAttribute('aria-pressed', x === b)); dt = +b.dataset.dt; compute(); resetRace();
+  }));
+  document.querySelectorAll('#predictBox button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#predictBox button').forEach(x => x.setAttribute('aria-pressed', x === b)); guess = b.dataset.guess;
+    $('raceMsg').textContent = '좋아요. 이제 경주 시작!'; $('raceMsg').className = 'msg';
+  }));
+  const resetRace = () => { phase = 'idle'; simT = 0; arrived = []; $('raceClock').textContent = 'T+000.0 s'; };
+  $('raceGo').addEventListener('click', () => { ensureAudio(); ping(1000, 1.0); resetRace(); phase = 'run'; prev = performance.now(); $('raceMsg').textContent = guess ? '출발! 수신기에 누가 먼저 닿을까요?' : '예상 없이 출발! 그래도 결과를 보고 이유를 생각해 봐요.'; $('raceMsg').className = 'msg'; });
+  $('raceReset').addEventListener('click', () => { resetRace(); $('raceMsg').textContent = '예상을 고르고 경주를 시작하세요.'; $('raceMsg').className = 'msg'; });
+  compute();
+  const finish = () => {
+    const first = arrived[0], last = arrived[arrived.length - 1];
+    const gap = last.t - first.t;
+    let verdict = '';
+    if (guess === '12') verdict = '<b class="hl">예상 적중!</b> ';
+    else if (guess === '0') verdict = '<b class="hl-amber">예상과 반대!</b> ';
+    else if (guess === 'same') verdict = '<b class="hl-amber">거의 비슷하지만</b> 차이가 있어요. ';
+    $('raceMsg').innerHTML = `${verdict}${first.deg}°가 가장 먼저, 수평 0°가 가장 늦게 도착했어요. 차이 약 <b>${fmt(gap, 2)}초</b>. 경로는 짧아도 가장 느린 층에만 머물렀기 때문이에요.`;
+    $('raceMsg').className = guess === '12' ? 'msg' : 'msg amber';
+  };
+  sc.frame = (now) => {
+    const ctx = sc.ctx, time = now / 1000; oc.draw(ctx, time); const g = oc.g;
+    // chart area reserve: draw arrivals strip inside top of seafloor? -> draw overlay box top-right
+    if (phase === 'run') {
+      const realDt = clamp((now - prev) / 1000, 0, 0.05); prev = now;
+      const warp = simT < 132.8 ? 34 : 0.9; // slow-motion near the receiver
+      simT += realDt * warp;
+      rays.forEach(r => { if (simT >= r.t && !arrived.find(a => a.deg === r.deg)) { arrived.push({ deg: r.deg, t: r.t }); ping(700 + r.deg * 40, 0.5, 0.14); } });
+      if (arrived.length === rays.length) { phase = 'done'; finish(); }
+    }
+    const tt = phase === 'idle' ? 0 : simT;
+    rays.forEach(r => { const h = drawRay(ctx, oc, r, tt, COL[r.deg]); if (phase !== 'idle' && tt < r.t) drawHead(ctx, oc, h, COL[r.deg]); });
+    drawSource(ctx, oc.X(0, g), oc.Y(ZA, g), time);
+    drawReceiver(ctx, oc.X(200000, g) - 2, oc.Y(ZA, g), g.y1, arrived.length > 0 && phase === 'run');
+    $('raceClock').textContent = (phase === 'run' && simT >= 132.8 ? '슬로모션 · ' : '') + 'T+' + fmt(Math.min(tt, 999), 2).padStart(6, '0') + ' s';
+    // receiver log (oscillogram)
+    const bw = Math.min(330, g.w * (g.narrow ? 0.86 : 0.42)), bh = g.narrow ? 70 : 84;
+    const bx = g.narrow ? (g.w - bw) / 2 : g.x1 - bw - 10, by = g.y0 + (oc.Y(ZA, g) - g.y0) + 34;
+    const boxY = Math.min(by, g.y1 - bh - 8);
+    ctx.fillStyle = 'rgba(2,12,20,0.78)'; ctx.strokeStyle = 'rgba(118,222,226,0.3)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, boxY, bw, bh, 10) : ctx.rect(bx, boxY, bw, bh); ctx.fill(); ctx.stroke();
+    const t0 = 133.8, t1 = 135.4, ax0 = bx + 12, ax1 = bx + bw - 12, base = boxY + bh - 20;
+    const TX = t => ax0 + (t - t0) / (t1 - t0) * (ax1 - ax0);
+    ctx.font = '10px "JetBrains Mono", monospace'; ctx.fillStyle = 'rgba(170,215,225,0.7)'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('수신 기록 RX-200', bx + 12, boxY + 15);
+    ctx.strokeStyle = 'rgba(170,215,225,0.3)'; ctx.beginPath(); ctx.moveTo(ax0, base + .5); ctx.lineTo(ax1, base + .5); ctx.stroke();
+    ctx.textAlign = 'center';
+    for (let t = 134; t <= 135.01; t += 0.5) { const px = TX(t); ctx.beginPath(); ctx.moveTo(px, base); ctx.lineTo(px, base + 4); ctx.stroke(); ctx.fillText(t.toFixed(1), px, base + 14); }
+    // live trace noise
+    ctx.strokeStyle = 'rgba(94,242,223,0.35)'; ctx.beginPath();
+    const tEnd = phase === 'idle' ? t0 : Math.min(simT, t1);
+    for (let px = ax0; px <= TX(tEnd); px += 2) { const yy = base - 3 - Math.random() * 2; px === ax0 ? ctx.moveTo(px, yy) : ctx.lineTo(px, yy); }
+    ctx.stroke();
+    arrived.forEach(a => {
+      const px = TX(a.t), hgt = a.deg === 0 ? bh - 40 : bh - 48 - a.deg;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = COL[a.deg]; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(px, base); ctx.lineTo(px, base - hgt); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = COL[a.deg]; ctx.font = '600 10px "JetBrains Mono", monospace'; ctx.fillText(`${a.deg}°`, px, base - hgt - 4);
+    });
+  };
+}
+
+/* ================= ST.05 echo sounder ================= */
+{
+  const sc = Scene($('echoCv'), w => w < 560 ? 1.05 : 0.78, null);
+  let trueD = 4000, revealed = true, vMode = 'surface', pingState = null, measuredT = null, parts = [];
+  for (let i = 0; i < 50; i++) parts.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.3 + 0.3, s: Math.random() * 0.01 + 0.004 });
+  const geo = () => { const w = sc.w, h = sc.h; return { w, h, y0: Math.max(48, Math.round(h * 0.13)), y1: h - 26, x0: 46, x1: w - 14 }; };
+  const Y = (z, g) => g.y0 + z / ZF * (g.y1 - g.y0);
+  let terrain = [];
+  const makeTerrain = () => { terrain = []; const seed = Math.random() * 10; for (let i = 0; i <= 60; i++) terrain.push(Math.sin(i * 0.35 + seed) * 70 + Math.sin(i * 1.1 + seed * 2) * 30); terrain[30] = 0; };
+  makeTerrain();
+  const floorZ = (fx) => { const i = clamp(fx, 0, 1) * 60, a = Math.floor(i), b = Math.min(60, a + 1), f = i - a; return trueD + lerp(terrain[a], terrain[b], f); };
+  const oneWay = () => verticalTime(trueD);
+  const vbar = () => trueD / oneWay();
+  const updateCalc = () => {
+    if (measuredT == null) { $('roD').textContent = '핑을 먼저 쏘세요'; $('roErr').textContent = '—'; $('roT').textContent = '—'; }
+    else {
+      $('roT').innerHTML = `${fmt(measuredT, 3)}<small>s</small>`;
+      const v = vMode === 'surface' ? 1520 : vbar();
+      const d = v * measuredT / 2;
+      $('calcK').textContent = `d = ${fmt(v, 1)} × ${fmt(measuredT, 3)} ÷ 2`;
+      $('roD').innerHTML = `${fmt(d, 0)}<small>m</small>`;
+      if (revealed) { const e = d - trueD; $('roErr').innerHTML = `${e >= 0 ? '+' : ''}${fmt(e, 0)}<small>m</small>`; $('roErr').className = Math.abs(e) > 5 ? 'v warn' : 'v'; }
+      else { $('roErr').textContent = '정답 공개 후'; $('roErr').className = 'v'; }
+    }
+    $('roTrue').innerHTML = revealed ? `${trueD}<small>m</small>` : '? m';
+  };
+  document.querySelectorAll('#vSeg button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#vSeg button').forEach(x => x.setAttribute('aria-pressed', x === b)); vMode = b.dataset.v; updateCalc();
+  }));
+  $('ping').addEventListener('click', () => { ensureAudio(); ping(1500, 0.5, 0.15); pingState = { t0: performance.now(), T: 2 * oneWay(), echoed: false }; measuredT = null; updateCalc(); });
+  $('newSea').addEventListener('click', () => { trueD = (Math.round((1500 + Math.random() * 2500) / 10) * 10); revealed = false; measuredT = null; pingState = null; makeTerrain(); updateCalc(); });
+  $('reveal').addEventListener('click', () => { revealed = true; updateCalc(); });
+  updateCalc();
+  sc.frame = (now) => {
+    const ctx = sc.ctx, g = geo(), time = now / 1000;
+    // water
+    const wg = ctx.createLinearGradient(0, g.y0, 0, g.y1);
+    wg.addColorStop(0, '#0f5f72'); wg.addColorStop(0.25, '#0b2a5a'); wg.addColorStop(1, '#0a2a3a');
+    const sk = ctx.createLinearGradient(0, 0, 0, g.y0); sk.addColorStop(0, '#04131f'); sk.addColorStop(1, '#0f4660');
+    ctx.fillStyle = sk; ctx.fillRect(0, 0, g.w, g.y0); ctx.fillStyle = wg; ctx.fillRect(0, g.y0, g.w, g.y1 - g.y0);
+    const ya = Y(ZA, g);
+    ctx.setLineDash([6, 6]); ctx.strokeStyle = 'rgba(94,242,223,0.45)'; ctx.beginPath(); ctx.moveTo(g.x0, ya); ctx.lineTo(g.x1, ya); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(94,242,223,0.8)'; ctx.font = '11px "IBM Plex Sans KR", sans-serif'; ctx.textAlign = 'left'; ctx.fillText('1000 m 층', g.x0 + 6, ya - 6);
+    ctx.font = '10px "JetBrains Mono", monospace'; ctx.fillStyle = 'rgba(170,215,225,0.6)'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let z = 0; z <= ZF; z += 1000) ctx.fillText(`${z}`, g.x0 - 6, Y(z, g));
+    ctx.textBaseline = 'alphabetic';
+    // snow
+    ctx.fillStyle = '#cfefff';
+    for (const p of parts) { if (!reduce) { p.y += p.s * 0.016; if (p.y > 1) { p.y = 0; p.x = Math.random(); } } ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(g.x0 + p.x * (g.x1 - g.x0), g.y0 + p.y * (g.y1 - g.y0), p.r, 0, 6.283); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    // seafloor terrain
+    ctx.beginPath(); ctx.moveTo(0, g.h);
+    for (let px = 0; px <= g.w; px += 4) { const fx = px / g.w; ctx.lineTo(px, Y(floorZ(fx), g)); }
+    ctx.lineTo(g.w, g.h); ctx.closePath();
+    const fl = ctx.createLinearGradient(0, Y(trueD - 100, g), 0, g.h); fl.addColorStop(0, '#2a3a3c'); fl.addColorStop(1, '#070d10');
+    ctx.fillStyle = fl; ctx.fill(); ctx.strokeStyle = 'rgba(255,122,134,0.35)'; ctx.stroke();
+    // surface + ship
+    ctx.strokeStyle = 'rgba(190,250,255,0.6)'; ctx.lineWidth = 1.3; ctx.beginPath();
+    for (let px = 0; px <= g.w; px += 3) { const yy = g.y0 + Math.sin(px * 0.05 + time * 1.7) * 1.5; px ? ctx.lineTo(px, yy) : ctx.moveTo(px, yy); } ctx.stroke();
+    const sx = g.w * 0.5; drawShip(ctx, sx, g.y0 - 2, g.w < 560 ? 0.8 : 1);
+    const floorAtShip = Y(trueD, g);
+    // pulse
+    let elapsed = 0;
+    if (pingState) {
+      elapsed = Math.max(0, (now - pingState.t0) / 1000); const T = pingState.T, half = T / 2;
+      // depth of pulse
+      const zAt = (tt) => { // invert one-way time
+        let z = 0, t = 0; const dz = 5; while (z < trueD && t < tt) { t += dz / speed(z); z += dz; } return Math.min(z, trueD);
+      };
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      if (elapsed < half) {
+        const z = zAt(elapsed), y = Y(z, g);
+        ctx.strokeStyle = 'rgba(94,242,223,0.25)'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(sx, g.y0 + 4); ctx.lineTo(sx, y); ctx.stroke();
+        for (let i = 0; i < 3; i++) { ctx.strokeStyle = `rgba(94,242,223,${0.8 - i * 0.25})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(sx, y - i * 6, 26 - i * 4, 7 - i, 0, 0, Math.PI); ctx.stroke(); }
+      } else if (elapsed < T) {
+        const z = zAt(T - elapsed), y = Y(z, g);
+        ctx.strokeStyle = 'rgba(94,242,223,0.18)'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(sx, g.y0 + 4); ctx.lineTo(sx, floorAtShip); ctx.stroke();
+        for (let i = 0; i < 3; i++) { ctx.strokeStyle = `rgba(255,207,90,${0.8 - i * 0.25})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(sx, y + i * 6, 26 - i * 4, 7 - i, 0, Math.PI, Math.PI * 2); ctx.stroke(); }
+        const age = elapsed - half; if (age < 1) { ctx.strokeStyle = `rgba(255,207,90,${1 - age})`; ctx.beginPath(); ctx.ellipse(sx, floorAtShip, 10 + age * 60, 3 + age * 10, 0, 0, Math.PI * 2); ctx.stroke(); }
+      } else if (!pingState.echoed) {
+        pingState.echoed = true; measuredT = T; ping(1500, 0.35, 0.12); updateCalc();
+      }
+      ctx.restore();
+      $('echoClock').textContent = `t = ${fmt(Math.min(elapsed, T), 3)} s`;
+    }
+    // depth marker after measurement
+    if (measuredT != null) {
+      const v = vMode === 'surface' ? 1520 : vbar(), d = v * measuredT / 2, y = Y(Math.min(d, ZF + 200), g);
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = '#ffb547'; ctx.beginPath(); ctx.moveTo(sx - 70, y); ctx.lineTo(sx + 70, y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = '#ffb547'; ctx.font = '600 11px "JetBrains Mono", monospace'; ctx.textAlign = 'left'; ctx.fillText(`계산 ${fmt(d, 0)} m`, sx + 74, y + 4);
+    }
+    if (revealed) { ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = '11px "JetBrains Mono", monospace'; ctx.textAlign = 'right'; ctx.fillText(`실제 ${trueD} m`, sx - 74, floorAtShip + 4); }
+  };
+}
+
+/* ================= ambient background + gauge ================= */
+{
+  const cv = $('ambient'), ctx = cv.getContext('2d');
+  let W = 0, H = 0; const snow = [];
+  const rs = () => { W = cv.width = innerWidth; H = cv.height = innerHeight; };
+  rs(); addEventListener('resize', rs);
+  for (let i = 0; i < 110; i++) snow.push({ x: Math.random(), y: Math.random(), r: Math.random() * 1.6 + 0.3, s: Math.random() * 0.02 + 0.006, a: Math.random() * 0.4 + 0.1, p: Math.random() * 6 });
+  let dive = 0;
+  const onScroll = () => {
+    const max = document.documentElement.scrollHeight - innerHeight; dive = max > 0 ? clamp(scrollY / max, 0, 1) : 0;
+    $('gaugeDot').style.top = (dive * 100) + '%'; $('gaugeVal').textContent = Math.round(dive * 4000) + ' m';
+  };
+  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  window.__ambient = (now) => {
+    const t = now / 1000;
+    const top = [lerp(10, 2, dive), lerp(62, 8, dive), lerp(92, 18, dive)];
+    const bot = [lerp(3, 1, dive), lerp(22, 5, dive), lerp(40, 10, dive)];
+    const gr = ctx.createLinearGradient(0, 0, 0, H);
+    gr.addColorStop(0, `rgb(${top.map(v => v | 0)})`); gr.addColorStop(1, `rgb(${bot.map(v => v | 0)})`);
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+    const lightA = Math.max(0, 1 - dive * 3.2);
+    if (lightA > 0) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 7; i++) {
+        const sx = W * (0.05 + i * 0.15) + Math.sin(t * 0.2 + i) * 30, wd = 40 + (i % 3) * 40;
+        const lg = ctx.createLinearGradient(0, 0, 0, H * 0.8); lg.addColorStop(0, `rgba(150,235,245,${0.07 * lightA})`); lg.addColorStop(1, 'rgba(150,235,245,0)');
+        ctx.fillStyle = lg; ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx + wd, 0); ctx.lineTo(sx + wd + 180, H * 0.8); ctx.lineTo(sx + 120, H * 0.8); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.fillStyle = '#d8f3ff';
+    for (const p of snow) {
+      if (!reduce) { p.y += p.s * 0.016; p.x += Math.sin(t * 0.5 + p.p) * 0.00015; if (p.y > 1) { p.y = 0; p.x = Math.random(); } }
+      ctx.globalAlpha = p.a; ctx.beginPath(); ctx.arc(p.x * W, p.y * H, p.r, 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // a few bioluminescent specks deeper down
+    if (dive > 0.35) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 9; i++) {
+        const x = ((i * 0.137 + 0.05) % 1) * W, y = ((i * 0.291 + 0.1) % 1) * H, a = (Math.sin(t * 0.9 + i * 1.7) * 0.5 + 0.5) * (dive - 0.35) * 0.9;
+        const rg = ctx.createRadialGradient(x, y, 0, x, y, 16); rg.addColorStop(0, `rgba(94,242,223,${a})`); rg.addColorStop(1, 'rgba(94,242,223,0)');
+        ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, 16, 0, 6.283); ctx.fill();
+      }
+      ctx.restore();
+    }
+  };
+}
+
+/* ================= main loop ================= */
+function loop(now) {
+  window.__ambient(now);
+  for (const s of scenes) if (s.visible && s.frame && s.w) s.frame(now);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
